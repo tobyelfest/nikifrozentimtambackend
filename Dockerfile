@@ -1,6 +1,6 @@
 FROM php:8.2-apache
 
-# Install semua dependency + libzip-dev (penting buat excel)
+# Install semua dependency + libzip-dev (buat Excel)
 RUN apt-get update && apt-get install -y \
     git \
     curl \
@@ -13,7 +13,7 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Install PHP extensions (tambahin zip)
+# Install PHP extensions (termasuk zip)
 RUN docker-php-ext-install \
     pdo_mysql \
     mbstring \
@@ -23,16 +23,20 @@ RUN docker-php-ext-install \
     gd \
     zip
 
-# ========= PERBAIKAN MPM APACHE =========
-RUN a2dismod mpm_event mpm_worker || true && \
-    a2dismod mpm_prefork || true && \
-    a2enmod mpm_prefork && \
-    a2enmod rewrite
+# ========= PERBAIKAN MPM (PASTI AMPUH) =========
+# Hapus semua konfigurasi MPM biar gak konflik
+RUN rm -f /etc/apache2/mods-available/mpm_event.* \
+         /etc/apache2/mods-available/mpm_worker.* \
+         /etc/apache2/mods-available/mpm_prefork.* \
+    && rm -f /etc/apache2/mods-enabled/mpm_event.* \
+         /etc/apache2/mods-enabled/mpm_worker.* \
+         /etc/apache2/mods-enabled/mpm_prefork.* \
+    && a2enmod mpm_prefork \
+    && a2enmod rewrite
 
-# Copy konfigurasi virtual host
+# Copy virtual host
 COPY docker/000-default.conf /etc/apache2/sites-available/000-default.conf
 
-# Set working directory
 WORKDIR /var/www/html
 
 # Copy semua file project
@@ -40,18 +44,20 @@ COPY . .
 
 # Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
-
-# Biarkan Composer jalan sebagai root (di container aman)
 ENV COMPOSER_ALLOW_SUPERUSER=1
 
-# Install dependencies Laravel (tanpa dev)
+# Install dependencies Laravel
 RUN composer install --no-interaction --optimize-autoloader --no-dev
 
-# Set permission folder storage & bootstrap/cache
-RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache && \
-    chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
+# ========= BIKIN FOLDER YANG DIPERLUIN SEBELUM CHOWN =========
+# Folder bootstrap/cache kadang gak ada di repo, jadi kita bikin dulu
+RUN mkdir -p /var/www/html/bootstrap/cache \
+    && mkdir -p /var/www/html/storage
 
-# Expose port (Railway nanti inject port)
+# Set permission
+RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache \
+    && chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
+
 EXPOSE 80
 
 # Start Apache dengan port dari Railway
