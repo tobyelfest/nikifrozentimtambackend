@@ -47,23 +47,30 @@ COPY docker/000-default.conf \
     /etc/apache2/sites-available/000-default.conf
 
 
-# ===============================
+# ================================
 # FIX APACHE MPM CONFLICT
-# ===============================
+# ================================
 
-RUN a2dismod mpm_event || true \
-    && a2dismod mpm_worker || true \
-    && a2dismod mpm_prefork || true \
+RUN rm -f /etc/apache2/mods-enabled/mpm_*.load \
+          /etc/apache2/mods-enabled/mpm_*.conf \
     && a2enmod mpm_prefork \
     && a2enmod rewrite
 
 
-RUN chown -R www-data:www-data \
+# Debug MPM
+RUN ls -la /etc/apache2/mods-enabled | grep mpm || true
+
+
+RUN mkdir -p \
+    storage/framework/cache \
+    storage/framework/sessions \
+    storage/framework/views \
+    bootstrap/cache \
+    && chown -R www-data:www-data \
     storage \
     bootstrap/cache
 
 
 EXPOSE 80
-
 
 CMD ["apache2-foreground"]
