@@ -9,7 +9,11 @@ RUN apt-get update && apt-get install -y \
     curl \
     libzip-dev \
     zip \
-    && docker-php-ext-install pdo pdo_mysql zip \
+    libpng-dev \
+    libjpeg-dev \
+    libfreetype6-dev \
+    && docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-install pdo pdo_mysql zip gd \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
