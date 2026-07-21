@@ -39,8 +39,8 @@ RUN composer dump-autoload --optimize --no-dev
 # 7. Konfigurasi Apache Laravel
 COPY docker/000-default.conf /etc/apache2/sites-available/000-default.conf
 
-# 8. Disable conflicting MPM modules and enable prefork + rewrite
-RUN a2dismod mpm_event mpm_worker || true && a2enmod mpm_prefork rewrite
+# 8. Sapu bersih semua modul MPM bawaan, lalu aktifkan prefork & rewrite
+RUN rm -f /etc/apache2/mods-enabled/mpm_*.load /etc/apache2/mods-enabled/mpm_*.conf && a2enmod mpm_prefork rewrite
 
 # 9. Set permission folder storage & cache
 RUN chown -R www-data:www-data storage bootstrap/cache
@@ -48,4 +48,3 @@ RUN chown -R www-data:www-data storage bootstrap/cache
 EXPOSE 80
 
 CMD ["apache2-foreground"]
-
