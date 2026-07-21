@@ -1,6 +1,6 @@
 FROM php:8.2-apache
 
-# Install semua dependency + libzip-dev (buat Excel)
+# Install dependency + libzip-dev
 RUN apt-get update && apt-get install -y \
     git \
     curl \
@@ -23,8 +23,7 @@ RUN docker-php-ext-install \
     gd \
     zip
 
-# ========= PERBAIKAN MPM (PASTI AMPUH) =========
-# Hapus semua konfigurasi MPM biar gak konflik
+# ========= PERBAIKAN MPM (YANG BENER) =========
 RUN rm -f /etc/apache2/mods-available/mpm_event.* \
          /etc/apache2/mods-available/mpm_worker.* \
          /etc/apache2/mods-available/mpm_prefork.* \
@@ -39,18 +38,13 @@ COPY docker/000-default.conf /etc/apache2/sites-available/000-default.conf
 
 WORKDIR /var/www/html
 
-# Copy semua file project
 COPY . .
 
-# Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 ENV COMPOSER_ALLOW_SUPERUSER=1
-
-# Install dependencies Laravel
 RUN composer install --no-interaction --optimize-autoloader --no-dev
 
-# ========= BIKIN FOLDER YANG DIPERLUIN SEBELUM CHOWN =========
-# Folder bootstrap/cache kadang gak ada di repo, jadi kita bikin dulu
+# Bikin folder yang diperlukan
 RUN mkdir -p /var/www/html/bootstrap/cache \
     && mkdir -p /var/www/html/storage
 
@@ -60,5 +54,4 @@ RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cac
 
 EXPOSE 80
 
-# Start Apache dengan port dari Railway
 CMD sed -i "s/Listen 80/Listen ${PORT}/g" /etc/apache2/ports.conf && apache2-foreground
