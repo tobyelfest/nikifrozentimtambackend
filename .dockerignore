@@ -1,5 +1,12 @@
 .env
 .git
+.gitignore
+.vscode
+.idea
 node_modules
 vendor
-storage/logs/*
+storage
+tests
+*.log
+*.sqlite
+*.sqlite-journal
