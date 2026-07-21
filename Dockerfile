@@ -8,14 +8,12 @@ RUN apt-get update && apt-get install -y \
 # Install PHP extensions (termasuk zip)
 RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd zip
 
-# ========= PERBAIKAN MPM (PASTI BERHASIL) =========
-# Hapus SEMUA konfigurasi MPM (file fisik, bukan symlink)
-RUN rm -f /etc/apache2/mods-available/mpm_*.load \
-         /etc/apache2/mods-available/mpm_*.conf \
-         /etc/apache2/mods-enabled/mpm_*.load \
-         /etc/apache2/mods-enabled/mpm_*.conf
+# ========= SOLUSI NUKLIR UNTUK MPM =========
+# 1. Hapus SEMUA file MPM (baik di available maupun enabled)
+RUN rm -rf /etc/apache2/mods-available/mpm_* \
+           /etc/apache2/mods-enabled/mpm_*
 
-# Buat ulang file prefork dari nol
+# 2. Buat file konfigurasi prefork dari nol
 RUN echo "LoadModule mpm_prefork_module /usr/lib/apache2/modules/mod_mpm_prefork.so" > /etc/apache2/mods-available/mpm_prefork.load && \
     echo "# mpm_prefork configuration" > /etc/apache2/mods-available/mpm_prefork.conf && \
     echo "StartServers 2" >> /etc/apache2/mods-available/mpm_prefork.conf && \
@@ -23,8 +21,11 @@ RUN echo "LoadModule mpm_prefork_module /usr/lib/apache2/modules/mod_mpm_prefork
     echo "MaxSpareServers 3" >> /etc/apache2/mods-available/mpm_prefork.conf && \
     echo "MaxRequestWorkers 10" >> /etc/apache2/mods-available/mpm_prefork.conf
 
-# Aktifkan prefork dan rewrite
+# 3. Aktifkan prefork (buat symlink)
 RUN a2enmod mpm_prefork && a2enmod rewrite
+
+# 4. (Opsional) Verifikasi file yang ada
+RUN ls -la /etc/apache2/mods-enabled/mpm* || echo "Tidak ada file MPM lain"
 
 # Copy virtual host
 COPY docker/000-default.conf /etc/apache2/sites-available/000-default.conf
@@ -43,5 +44,5 @@ RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cac
 
 EXPOSE 80
 
-# ========= START COMMAND DEFAULT (JANGAN DIUBAH) =========
+# Start Apache dengan port dari Railway
 CMD sed -i "s/Listen 80/Listen ${PORT}/g" /etc/apache2/ports.conf && apache2-foreground
