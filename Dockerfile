@@ -1,10 +1,7 @@
-# Use official PHP image with Apache
-FROM php:8.2-apache
+# Gunakan image resmi PHP-FPM (bukan Apache)
+FROM php:8.2-fpm
 
-# Set working directory
-WORKDIR /var/www/html
-
-# Install system dependencies
+# Install system dependencies termasuk Nginx
 RUN apt-get update && apt-get install -y \
     git \
     curl \
@@ -15,22 +12,14 @@ RUN apt-get update && apt-get install -y \
     unzip \
     libpq-dev \
     libzip-dev \
+    nginx \
     && docker-php-ext-install pdo_mysql pdo_pgsql mbstring exif pcntl bcmath gd zip
 
 # Clear cache
 RUN apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Disable conflicting MPM modules and enable only one
-RUN a2dismod mpm_event mpm_worker || true
-RUN a2enmod mpm_prefork
-
-# Enable Apache modules
-RUN a2enmod rewrite headers
-
-# Configure Apache DocumentRoot
-ENV APACHE_DOCUMENT_ROOT=/var/www/html/public
-RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/000-default.conf
-RUN sed -ri -e 's!/var/www/!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf
+# Set working directory
+WORKDIR /var/www/html
 
 # Copy application files
 COPY . .
@@ -44,7 +33,7 @@ ENV COMPOSER_ALLOW_SUPERUSER=1
 # Install PHP dependencies
 RUN composer install --no-interaction --optimize-autoloader --no-dev
 
-# Pastikan struktur folder storage dan bootstrap/cache ada (mencegah error folder tidak ditemukan)
+# Pastikan struktur folder storage dan bootstrap/cache ada
 RUN mkdir -p /var/www/html/storage/framework/sessions \
     && mkdir -p /var/www/html/storage/framework/views \
     && mkdir -p /var/www/html/storage/framework/cache \
@@ -56,8 +45,11 @@ RUN chown -R www-data:www-data /var/www/html
 RUN chmod -R 755 /var/www/html/storage
 RUN chmod -R 755 /var/www/html/bootstrap/cache
 
+# Copy konfigurasi Nginx (Pastikan file nginx.conf ada di root project Anda)
+COPY nginx.conf /etc/nginx/nginx.conf
+
 # Expose port 80
 EXPOSE 80
 
-# Start Apache
-CMD ["apache2-foreground"]
+# Jalankan PHP-FPM dan Nginx secara bersamaan
+CMD ["sh", "-c", "php-fpm -D && nginx -g 'daemon off;'"]
