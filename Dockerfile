@@ -2,52 +2,115 @@ FROM php:8.3-apache
 
 WORKDIR /var/www/html
 
-# 1. Install dependensi sistem dan PHP Extensions
+# ============================================================
+# Install System Dependencies + PHP Extensions
+# Laravel 10 Requirements
+# ============================================================
+
 RUN apt-get update && apt-get install -y \
     unzip \
     git \
     curl \
-    libzip-dev \
     zip \
+    libzip-dev \
     libpng-dev \
     libjpeg-dev \
     libfreetype6-dev \
-    && docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install pdo pdo_mysql zip gd \
+    && docker-php-ext-configure gd \
+        --with-freetype \
+        --with-jpeg \
+    && docker-php-ext-install \
+        pdo \
+        pdo_mysql \
+        zip \
+        gd \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# 2. Copy Composer binary langsung dari official image (lebih praktis)
+
+# ============================================================
+# Install Composer
+# ============================================================
+
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# 3. Copy file composer lebih dulu untuk memanfaatkan Docker Layer Cache
+
+# ============================================================
+# Copy Composer Files First
+# Docker Cache Optimization
+# ============================================================
+
 COPY composer.json composer.lock ./
 
-# 4. Install dependency vendor (gunakan --no-scripts agar tidak crash saat build)
+
+# ============================================================
+# Install Laravel Dependencies
+# No scripts because .env does not exist during build
+# ============================================================
+
 RUN composer install \
     --no-dev \
+    --no-interaction \
+    --prefer-dist \
     --no-scripts \
-    --no-autoloader \
-    --prefer-dist
+    --no-autoloader
 
-# 5. Copy seluruh sisa source code project Laravel
+
+# ============================================================
+# Copy Laravel Application
+# ============================================================
+
 COPY . .
 
-# 6. Generate autoloader setelah seluruh kode project ter-copy
-RUN composer dump-autoload --optimize --no-dev
 
-# 7. Konfigurasi Apache Laravel
-COPY docker/000-default.conf /etc/apache2/sites-available/000-default.conf
+# ============================================================
+# Generate Optimized Autoload
+# ============================================================
 
-# 8. Hapus paksa semua MPM & kunci HANYA mpm_prefork yang aktif
+RUN composer dump-autoload \
+    --optimize \
+    --no-dev
+
+
+# ============================================================
+# Apache Laravel Configuration
+# ============================================================
+
+COPY docker/000-default.conf \
+    /etc/apache2/sites-available/000-default.conf
+
+
+# Enable Apache Rewrite
+RUN a2enmod rewrite
+
+
+# ============================================================
+# Apache MPM Prefork
+# Required for mod_php
+# ============================================================
+
 RUN rm -f /etc/apache2/mods-enabled/mpm_* \
-    && ln -s /etc/apache2/mods-available/mpm_prefork.load /etc/apache2/mods-enabled/ \
-    && ln -s /etc/apache2/mods-available/mpm_prefork.conf /etc/apache2/mods-enabled/ \
-    && a2enmod rewrite
+    && a2enmod mpm_prefork
 
-# 9. Set permission folder storage & cache
-RUN chown -R www-data:www-data storage bootstrap/cache
+
+# ============================================================
+# Laravel Permission
+# ============================================================
+
+RUN chown -R www-data:www-data \
+    storage \
+    bootstrap/cache
+
+
+# ============================================================
+# Railway Port
+# ============================================================
 
 EXPOSE 80
+
+
+# ============================================================
+# Start Apache
+# ============================================================
 
 CMD ["apache2-foreground"]
