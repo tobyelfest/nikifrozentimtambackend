@@ -1,76 +1,46 @@
-FROM php:8.3-apache
+FROM php:8.2-apache
 
-WORKDIR /var/www/html
-
-
+# Install dependencies
 RUN apt-get update && apt-get install -y \
-    unzip \
     git \
     curl \
-    zip \
-    libzip-dev \
     libpng-dev \
-    libjpeg-dev \
-    libfreetype6-dev \
-    && docker-php-ext-configure gd \
-        --with-freetype \
-        --with-jpeg \
-    && docker-php-ext-install \
-        pdo \
-        pdo_mysql \
-        zip \
-        gd \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+    libonig-dev \
+    libxml2-dev \
+    zip \
+    unzip \
+&& apt-get clean && rm -rf /var/lib/apt/lists/*
 
+# Install PHP extensions
+RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd
 
-COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+# Enable Apache mod_rewrite
+# FIX MPM CONFLICT: Disable all, enable only prefork (required for PHP)
+RUN a2dismod mpm_event mpm_worker || true
+RUN a2dismod mpm_prefork || true
+RUN a2enmod mpm_prefork
+RUN a2enmod rewrite
 
+# Copy virtual host config
+COPY docker/000-default.conf /etc/apache2/sites-available/000-default.conf
 
-COPY composer.json composer.lock ./
+# Set working directory
+WORKDIR /var/www/html
 
-RUN composer install \
-    --no-dev \
-    --no-interaction \
-    --prefer-dist \
-    --no-scripts \
-    --no-autoloader
-
-
+# Copy application files
 COPY . .
 
+# Install Composer
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+RUN composer install --no-interaction --optimize-autoloader --no-dev
 
-RUN composer dump-autoload --optimize --no-dev
+# Set permissions
+RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
+RUN chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
 
+# Fix Railway Port (Change Apache Listen port to Railway's PORT env)
+RUN sed -i "s/Listen 80/Listen ${PORT}/g" /etc/apache2/ports.conf
+EXPOSE ${PORT}
 
-COPY docker/000-default.conf \
-    /etc/apache2/sites-available/000-default.conf
-
-
-# ================================
-# FIX APACHE MPM CONFLICT
-# ================================
-
-RUN rm -f /etc/apache2/mods-enabled/mpm_*.load \
-          /etc/apache2/mods-enabled/mpm_*.conf \
-    && a2enmod mpm_prefork \
-    && a2enmod rewrite
-
-
-# Debug MPM
-RUN ls -la /etc/apache2/mods-enabled | grep mpm || true
-
-
-RUN mkdir -p \
-    storage/framework/cache \
-    storage/framework/sessions \
-    storage/framework/views \
-    bootstrap/cache \
-    && chown -R www-data:www-data \
-    storage \
-    bootstrap/cache
-
-
-EXPOSE 80
-
+# Start Apache
 CMD ["apache2-foreground"]
