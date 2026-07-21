@@ -4,8 +4,7 @@ WORKDIR /var/www/html
 
 
 # ============================================================
-# Install System Dependencies + PHP Extensions
-# Laravel 10 Requirements
+# Install dependencies + PHP extensions
 # ============================================================
 
 RUN apt-get update && apt-get install -y \
@@ -33,20 +32,14 @@ RUN apt-get update && apt-get install -y \
 # Install Composer
 # ============================================================
 
-COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 
 # ============================================================
-# Copy Composer Files First
-# Docker Cache Optimization
+# Install Laravel dependencies (cache friendly)
 # ============================================================
 
 COPY composer.json composer.lock ./
-
-
-# ============================================================
-# Install Laravel Dependencies
-# ============================================================
 
 RUN composer install \
     --no-dev \
@@ -57,14 +50,14 @@ RUN composer install \
 
 
 # ============================================================
-# Copy Laravel Source Code
+# Copy Laravel source
 # ============================================================
 
 COPY . .
 
 
 # ============================================================
-# Generate Optimized Autoload
+# Generate autoload
 # ============================================================
 
 RUN composer dump-autoload \
@@ -73,19 +66,19 @@ RUN composer dump-autoload \
 
 
 # ============================================================
-# Apache Laravel Configuration
+# Apache Laravel Config
 # ============================================================
 
 COPY docker/000-default.conf \
     /etc/apache2/sites-available/000-default.conf
 
 
-# Enable Laravel Rewrite
+# Enable Laravel rewrite
 RUN a2enmod rewrite
 
 
 # ============================================================
-# Laravel Folder Permission
+# Laravel Permission
 # ============================================================
 
 RUN mkdir -p \
@@ -99,14 +92,10 @@ RUN mkdir -p \
 
 
 # ============================================================
-# Railway Port
+# Railway
 # ============================================================
 
 EXPOSE 80
 
-
-# ============================================================
-# Start Apache
-# ============================================================
 
 CMD ["apache2-foreground"]
