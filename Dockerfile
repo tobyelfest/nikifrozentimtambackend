@@ -23,20 +23,22 @@ RUN docker-php-ext-install \
     gd \
     zip
 
-# ========= SOLUSI BRUTAL MPM =========
-# Hapus SEMUA file konfigurasi MPM (bukan cuma symlink)
-RUN find /etc/apache2 -name "*mpm_*.load" -delete && \
-    find /etc/apache2 -name "*mpm_*.conf" -delete
+# ========= FIX MPM YANG PASTI BERHASIL =========
+# Hapus semua file konfigurasi MPM
+RUN rm -rf /etc/apache2/mods-available/mpm_*.load \
+         /etc/apache2/mods-available/mpm_*.conf \
+         /etc/apache2/mods-enabled/mpm_*.load \
+         /etc/apache2/mods-enabled/mpm_*.conf
 
-# Buat ulang config prefork dari nol
+# Buat ulang file mpm_prefork
 RUN echo "LoadModule mpm_prefork_module /usr/lib/apache2/modules/mod_mpm_prefork.so" > /etc/apache2/mods-available/mpm_prefork.load && \
-    echo "# Prefork MPM Configuration" > /etc/apache2/mods-available/mpm_prefork.conf && \
-    echo "StartServers 2" >> /etc/apache2/mods-available/mpm_prefork.conf && \
-    echo "MinSpareServers 1" >> /etc/apache2/mods-available/mpm_prefork.conf && \
-    echo "MaxSpareServers 3" >> /etc/apache2/mods-available/mpm_prefork.conf && \
-    echo "MaxRequestWorkers 10" >> /etc/apache2/mods-available/mpm_prefork.conf
+    echo "# mpm_prefork configuration" > /etc/apache2/mods-available/mpm_prefork.conf && \
+    echo "StartServers             2" >> /etc/apache2/mods-available/mpm_prefork.conf && \
+    echo "MinSpareServers          1" >> /etc/apache2/mods-available/mpm_prefork.conf && \
+    echo "MaxSpareServers          3" >> /etc/apache2/mods-available/mpm_prefork.conf && \
+    echo "MaxRequestWorkers       10" >> /etc/apache2/mods-available/mpm_prefork.conf
 
-# Aktifkan prefork
+# Aktifkan prefork dan rewrite
 RUN a2enmod mpm_prefork && a2enmod rewrite
 
 # Copy virtual host
