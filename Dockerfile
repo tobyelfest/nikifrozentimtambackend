@@ -2,7 +2,7 @@ FROM php:8.3-apache
 
 WORKDIR /var/www/html
 
-# Install PHP extensions yang dibutuhkan Laravel
+# 1. Install dependensi sistem dan PHP Extensions
 RUN apt-get update && apt-get install -y \
     unzip \
     git \
@@ -13,33 +13,33 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy project Laravel
-COPY . .
+# 2. Copy Composer binary langsung dari official image (lebih praktis)
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# Install Composer
-RUN curl -sS https://getcomposer.org/installer | php -- \
-    --install-dir=/usr/local/bin \
-    --filename=composer
+# 3. Copy file composer lebih dulu untuk memanfaatkan Docker Layer Cache
+COPY composer.json composer.lock ./
 
-# Install dependency Laravel
+# 4. Install dependency vendor (gunakan --no-scripts agar tidak crash saat build)
 RUN composer install \
     --no-dev \
-    --optimize-autoloader \
-    --no-interaction
+    --no-scripts \
+    --no-autoloader \
+    --prefer-dist
 
-# Konfigurasi Apache Laravel
+# 5. Copy seluruh sisa source code project Laravel
+COPY . .
+
+# 6. Generate autoloader setelah seluruh kode project ter-copy
+RUN composer dump-autoload --optimize --no-dev
+
+# 7. Konfigurasi Apache Laravel
 COPY docker/000-default.conf /etc/apache2/sites-available/000-default.conf
 
-# Aktifkan Apache rewrite untuk Laravel routing
+# 8. Aktifkan Apache rewrite untuk routing Laravel
 RUN a2enmod rewrite
 
-# Permission Laravel
+# 9. Set permission folder storage & cache
 RUN chown -R www-data:www-data storage bootstrap/cache
-
-# Laravel cache optimization (akan dijalankan saat env sudah tersedia)
-# RUN php artisan config:cache
-# RUN php artisan route:cache
-# RUN php artisan view:cache
 
 EXPOSE 80
 
