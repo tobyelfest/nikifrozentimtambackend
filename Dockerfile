@@ -9,13 +9,12 @@ RUN apt-get update && apt-get install -y \
     libxml2-dev \
     zip \
     unzip \
-&& apt-get clean && rm -rf /var/lib/apt/lists/*
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install PHP extensions
 RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd
 
-# Enable Apache mod_rewrite
-# FIX MPM CONFLICT: Disable all, enable only prefork (required for PHP)
+# Fix MPM Conflict: Disable all, enable only prefork
 RUN a2dismod mpm_event mpm_worker || true
 RUN a2dismod mpm_prefork || true
 RUN a2enmod mpm_prefork
@@ -38,9 +37,8 @@ RUN composer install --no-interaction --optimize-autoloader --no-dev
 RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
 RUN chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
 
-# Fix Railway Port (Change Apache Listen port to Railway's PORT env)
-RUN sed -i "s/Listen 80/Listen ${PORT}/g" /etc/apache2/ports.conf
-EXPOSE ${PORT}
+# Expose port (fallback)
+EXPOSE 80
 
-# Start Apache
-CMD ["apache2-foreground"]
+# Start Apache with dynamic port for Railway
+CMD sed -i "s/Listen 80/Listen ${PORT}/g" /etc/apache2/ports.conf && apache2-foreground
