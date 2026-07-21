@@ -47,7 +47,15 @@ COPY docker/000-default.conf \
     /etc/apache2/sites-available/000-default.conf
 
 
-RUN a2enmod rewrite
+# ===============================
+# FIX APACHE MPM CONFLICT
+# ===============================
+
+RUN a2dismod mpm_event || true \
+    && a2dismod mpm_worker || true \
+    && a2dismod mpm_prefork || true \
+    && a2enmod mpm_prefork \
+    && a2enmod rewrite
 
 
 RUN chown -R www-data:www-data \
