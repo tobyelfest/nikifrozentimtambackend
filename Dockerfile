@@ -2,6 +2,7 @@ FROM php:8.3-apache
 
 WORKDIR /var/www/html
 
+
 # ============================================================
 # Install System Dependencies + PHP Extensions
 # Laravel 10 Requirements
@@ -45,7 +46,6 @@ COPY composer.json composer.lock ./
 
 # ============================================================
 # Install Laravel Dependencies
-# No scripts because .env does not exist during build
 # ============================================================
 
 RUN composer install \
@@ -57,7 +57,7 @@ RUN composer install \
 
 
 # ============================================================
-# Copy Laravel Application
+# Copy Laravel Source Code
 # ============================================================
 
 COPY . .
@@ -80,26 +80,22 @@ COPY docker/000-default.conf \
     /etc/apache2/sites-available/000-default.conf
 
 
-# Enable Apache Rewrite
+# Enable Laravel Rewrite
 RUN a2enmod rewrite
 
 
 # ============================================================
-# Apache MPM Prefork
-# Required for mod_php
+# Laravel Folder Permission
 # ============================================================
 
-RUN rm -f /etc/apache2/mods-enabled/mpm_* \
-    && a2enmod mpm_prefork
-
-
-# ============================================================
-# Laravel Permission
-# ============================================================
-
-RUN chown -R www-data:www-data \
-    storage \
-    bootstrap/cache
+RUN mkdir -p \
+    storage/framework/cache \
+    storage/framework/sessions \
+    storage/framework/views \
+    bootstrap/cache \
+    && chown -R www-data:www-data \
+        storage \
+        bootstrap/cache
 
 
 # ============================================================
