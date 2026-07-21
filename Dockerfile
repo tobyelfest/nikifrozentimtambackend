@@ -4,7 +4,7 @@ FROM php:8.2-apache
 # Set working directory
 WORKDIR /var/www/html
 
-# Install system dependencies (tambahan libzip-dev di sini)
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
     git \
     curl \
@@ -43,6 +43,13 @@ ENV COMPOSER_ALLOW_SUPERUSER=1
 
 # Install PHP dependencies
 RUN composer install --no-interaction --optimize-autoloader --no-dev
+
+# Pastikan struktur folder storage dan bootstrap/cache ada (mencegah error folder tidak ditemukan)
+RUN mkdir -p /var/www/html/storage/framework/sessions \
+    && mkdir -p /var/www/html/storage/framework/views \
+    && mkdir -p /var/www/html/storage/framework/cache \
+    && mkdir -p /var/www/html/storage/logs \
+    && mkdir -p /var/www/html/bootstrap/cache
 
 # Set permissions
 RUN chown -R www-data:www-data /var/www/html
